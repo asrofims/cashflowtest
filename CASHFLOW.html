@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Cashflow Modern</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #f4f7fc;
+            --card-bg: #ffffff;
+            --text-color: #343a40;
+            --primary-color: #4e73df;
+            --income-color: #1cc88a;
+            --expense-color: #e74a3b;
+            --shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+        .card {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card-header {
+            background-color: transparent;
+            border-bottom: 1px solid #e3e6f0;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        .summary-card .card-body {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .summary-card .icon-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.5rem;
+        }
+        .icon-income { background-color: var(--income-color); }
+        .icon-expense { background-color: var(--expense-color); }
+        .icon-balance { background-color: var(--primary-color); }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 6px 0 rgba(78, 115, 223, 0.5);
+        }
+        .table {
+            background-color: var(--card-bg);
+        }
+        .loading-spinner {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.7);
+            z-index: 1060;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container py-4">
+        <header class="text-center mb-5">
+            <h1 class="fw-bolder">📈 Dashboard Keuangan</h1>
+            <p class="text-muted">Visualisasikan dan kelola cashflow Anda secara efektif.</p>
+        </header>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-bar-chart-line-fill"></i> Analisis Bulanan
+            </div>
+            <div class="card-body">
+                <canvas id="cashflowChart" height="120"></canvas>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-4 col-md-6">
+                <div class="card summary-card border-start border-5 border-success">
+                    <div class="card-body">
+                        <div>
+                            <div class="text-xs fw-bold text-success text-uppercase mb-1">Total Pemasukan</div>
+                            <div id="total-pemasukan" class="h4 mb-0 fw-bold text-gray-800">Rp 0</div>
+                        </div>
+                        <div class="icon-circle icon-income"><i class="bi bi-arrow-down"></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="card summary-card border-start border-5 border-danger">
+                    <div class="card-body">
+                        <div>
+                            <div class="text-xs fw-bold text-danger text-uppercase mb-1">Total Pengeluaran</div>
+                            <div id="total-pengeluaran" class="h4 mb-0 fw-bold text-gray-800">Rp 0</div>
+                        </div>
+                        <div class="icon-circle icon-expense"><i class="bi bi-arrow-up"></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-12">
+                <div class="card summary-card border-start border-5 border-primary">
+                    <div class="card-body">
+                        <div>
+                            <div class="text-xs fw-bold text-primary text-uppercase mb-1">Sisa Kas</div>
+                            <div id="sisa-kas" class="h4 mb-0 fw-bold text-gray-800">Rp 0</div>
+                        </div>
+                        <div class="icon-circle icon-balance"><i class="bi bi-wallet2"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-table"></i> Riwayat Transaksi</span>
+                 <div class="d-flex flex-wrap">
+                    <select id="filter-bulan" class="form-select form-select-sm me-2" style="width: auto;">
+                        <option value="">Semua Bulan</option>
+                    </select>
+                    <select id="filter-jenis" class="form-select form-select-sm me-2" style="width: auto;">
+                        <option value="">Semua Jenis</option>
+                        <option value="Pemasukan">Pemasukan</option>
+                        <option value="Pengeluaran">Pengeluaran</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+                        <i class="bi bi-plus-circle"></i> Tambah
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th><th>Deskripsi</th><th>Jenis</th><th>Jumlah</th><th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cashflow-table-body">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-spinner" id="spinner">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addTransactionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Tambah Transaksi Baru</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="add-form">
+                        <div class="mb-3"><label for="add-tanggal" class="form-label">Tanggal</label><input type="date" class="form-control" id="add-tanggal" required></div>
+                        <div class="mb-3"><label for="add-deskripsi" class="form-label">Deskripsi</label><input type="text" class="form-control" id="add-deskripsi" required></div>
+                        <div class="mb-3"><label class="form-label">Jenis</label>
+                            <div class="form-check"><input class="form-check-input" type="radio" name="add-jenis" id="add-pemasukan" value="Pemasukan" checked><label class="form-check-label" for="add-pemasukan">Pemasukan</label></div>
+                            <div class="form-check"><input class="form-check-input" type="radio" name="add-jenis" id="add-pengeluaran" value="Pengeluaran"><label class="form-check-label" for="add-pengeluaran">Pengeluaran</label></div>
+                        </div>
+                        <div class="mb-3"><label for="add-jumlah" class="form-label">Jumlah</label><input type="number" class="form-control" id="add-jumlah" required></div>
+                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="editTransactionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Edit Transaksi</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="edit-form">
+                        <input type="hidden" id="edit-id">
+                        <div class="mb-3"><label for="edit-tanggal" class="form-label">Tanggal</label><input type="date" class="form-control" id="edit-tanggal" required></div>
+                        <div class="mb-3"><label for="edit-deskripsi" class="form-label">Deskripsi</label><input type="text" class="form-control" id="edit-deskripsi" required></div>
+                        <div class="mb-3"><label class="form-label">Jenis</label>
+                            <div class="form-check"><input class="form-check-input" type="radio" name="edit-jenis" id="edit-pemasukan" value="Pemasukan"><label class="form-check-label" for="edit-pemasukan">Pemasukan</label></div>
+                            <div class="form-check"><input class="form-check-input" type="radio" name="edit-jenis" id="edit-pengeluaran" value="Pengeluaran"><label class="form-check-label" for="edit-pengeluaran">Pengeluaran</label></div>
+                        </div>
+                        <div class="mb-3"><label for="edit-jumlah" class="form-label">Jumlah</label><input type="number" class="form-control" id="edit-jumlah" required></div>
+                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Update</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    
+    <script>
+        // =======================================================================
+        // KONFIGURASI: Ganti dengan URL Web App Anda dari Google Apps Script
+        // =======================================================================
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwz7cuUIxSoqLDm6xxBFTMPgNwUV88wQGPiATh1iLKJ9FU6LhHOA8cFkgkAO4ZW2r1n5w/exec';
+
+        // --- Global Variables & Elements ---
+        let allTransactions = [];
+        let cashflowChart = null;
+        const spinner = document.getElementById('spinner');
+        const addForm = document.getElementById('add-form');
+        const editForm = document.getElementById('edit-form');
+        const tableBody = document.getElementById('cashflow-table-body');
+        const editModal = new bootstrap.Modal(document.getElementById('editTransactionModal'));
+        const addModalEl = document.getElementById('addTransactionModal');
+        const filterBulan = document.getElementById('filter-bulan');
+        const filterJenis = document.getElementById('filter-jenis');
+
+        // --- Utility Functions ---
+        const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+        const showSpinner = () => spinner.style.display = 'flex';
+        const hideSpinner = () => spinner.style.display = 'none';
+
+        // --- API Communication ---
+        async function apiCall(action, data = {}) {
+            showSpinner();
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST', body: JSON.stringify({ action, ...data }), headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (result.status === 'error') throw new Error(result.message);
+                return result.data;
+            } catch (error) {
+                alert(`Terjadi kesalahan: ${error.message}`);
+                return null;
+            } finally {
+                hideSpinner();
+            }
+        }
+
+        // --- Rendering Functions ---
+        function renderTable(transactions) {
+            tableBody.innerHTML = '';
+            if (transactions.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted fst-italic py-4">Tidak ada data untuk filter ini.</td></tr>`;
+                return;
+            }
+            transactions.forEach(tx => {
+                const row = document.createElement('tr');
+                const isPemasukan = tx.jenis === 'Pemasukan';
+                row.innerHTML = `
+                    <td>${new Date(tx.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td>${tx.deskripsi}</td>
+                    <td><span class="badge rounded-pill text-bg-${isPemasukan ? 'success' : 'danger'}">${tx.jenis}</span></td>
+                    <td class="fw-bold">${formatCurrency(tx.jumlah)}</td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm py-0 px-1" onclick="openEditModal('${tx.id}')"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="handleDelete('${tx.id}')"><i class="bi bi-trash"></i></button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function updateSummary(transactions) {
+            const totalPemasukan = transactions.filter(t => t.jenis === 'Pemasukan').reduce((sum, t) => sum + Number(t.jumlah), 0);
+            const totalPengeluaran = transactions.filter(t => t.jenis === 'Pengeluaran').reduce((sum, t) => sum + Number(t.jumlah), 0);
+            document.getElementById('total-pemasukan').textContent = formatCurrency(totalPemasukan);
+            document.getElementById('total-pengeluaran').textContent = formatCurrency(totalPengeluaran);
+            document.getElementById('sisa-kas').textContent = formatCurrency(totalPemasukan - totalPengeluaran);
+        }
+
+        function renderChart(transactions) {
+            const ctx = document.getElementById('cashflowChart').getContext('2d');
+            const monthlyData = {};
+
+            transactions.forEach(tx => {
+                const month = tx.tanggal.substring(0, 7); // Format: YYYY-MM
+                if (!monthlyData[month]) {
+                    monthlyData[month] = { pemasukan: 0, pengeluaran: 0 };
+                }
+                if (tx.jenis === 'Pemasukan') {
+                    monthlyData[month].pemasukan += Number(tx.jumlah);
+                } else {
+                    monthlyData[month].pengeluaran += Number(tx.jumlah);
+                }
+            });
+
+            const sortedMonths = Object.keys(monthlyData).sort();
+            const labels = sortedMonths.map(month => new Date(month + '-02').toLocaleString('id-ID', { month: 'short', year: 'numeric' }));
+            const pemasukanData = sortedMonths.map(month => monthlyData[month].pemasukan);
+            const pengeluaranData = sortedMonths.map(month => monthlyData[month].pengeluaran);
+            
+            if (cashflowChart) {
+                cashflowChart.destroy();
+            }
+
+            cashflowChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Pemasukan',
+                        data: pemasukanData,
+                        backgroundColor: 'rgba(28, 200, 138, 0.8)',
+                        borderColor: 'rgba(28, 200, 138, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Pengeluaran',
+                        data: pengeluaranData,
+                        backgroundColor: 'rgba(231, 74, 59, 0.8)',
+                        borderColor: 'rgba(231, 74, 59, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { y: { beginAtZero: true, ticks: { callback: value => formatCurrency(value) } } },
+                    plugins: { tooltip: { callbacks: { label: context => `${context.dataset.label}: ${formatCurrency(context.raw)}` } } }
+                }
+            });
+        }
+
+        function populateMonthFilter(transactions) {
+            const months = [...new Set(transactions.map(tx => tx.tanggal.substring(0, 7)))];
+            filterBulan.innerHTML = '<option value="">Semua Bulan</option>';
+            months.sort().reverse().forEach(month => {
+                const date = new Date(month + '-02');
+                const optionText = date.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+                filterBulan.add(new Option(optionText, month));
+            });
+        }
+
+        // --- Event Handlers & Logic ---
+        function applyFilters() {
+            const selectedMonth = filterBulan.value;
+            const selectedType = filterJenis.value;
+            let filtered = allTransactions;
+            if (selectedMonth) filtered = filtered.filter(tx => tx.tanggal.startsWith(selectedMonth));
+            if (selectedType) filtered = filtered.filter(tx => tx.jenis === selectedType);
+            
+            renderTable(filtered);
+            updateSummary(filtered);
+            renderChart(filtered);
+        }
+
+        function openEditModal(id) {
+            const tx = allTransactions.find(t => t.id == id);
+            if (tx) {
+                document.getElementById('edit-id').value = tx.id;
+                document.getElementById('edit-tanggal').valueAsDate = new Date(tx.tanggal);
+                document.getElementById('edit-deskripsi').value = tx.deskripsi;
+                document.getElementById(`edit-${tx.jenis.toLowerCase()}`).checked = true;
+                document.getElementById('edit-jumlah').value = tx.jumlah;
+                editModal.show();
+            }
+        }
+
+        async function handleDelete(id) {
+            if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+                const result = await apiCall('delete', { id });
+                if (result) await loadAndRenderData();
+            }
+        }
+
+        async function initializeApp() {
+            const data = await apiCall('read');
+            if (data) {
+                allTransactions = data;
+                populateMonthFilter(allTransactions);
+                applyFilters();
+            }
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            addForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    tanggal: document.getElementById('add-tanggal').value,
+                    deskripsi: document.getElementById('add-deskripsi').value,
+                    jenis: document.querySelector('input[name="add-jenis"]:checked').value,
+                    jumlah: document.getElementById('add-jumlah').value
+                };
+                const result = await apiCall('create', { data });
+                if (result) {
+                    bootstrap.Modal.getInstance(addModalEl).hide();
+                    addForm.reset();
+                    await loadAndRenderData();
+                }
+            });
+
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    id: document.getElementById('edit-id').value,
+                    tanggal: document.getElementById('edit-tanggal').value,
+                    deskripsi: document.getElementById('edit-deskripsi').value,
+                    jenis: document.querySelector('input[name="edit-jenis"]:checked').value,
+                    jumlah: document.getElementById('edit-jumlah').value,
+                };
+                const result = await apiCall('update', { data });
+                if (result) {
+                    editModal.hide();
+                    await loadAndRenderData();
+                }
+            });
+
+            filterBulan.addEventListener('change', applyFilters);
+            filterJenis.addEventListener('change', applyFilters);
+            
+            addModalEl.addEventListener('show.bs.modal', () => {
+                document.getElementById('add-tanggal').valueAsDate = new Date();
+            });
+
+            async function loadAndRenderData() {
+                const data = await apiCall('read');
+                if (data) {
+                    allTransactions = data;
+                    const currentMonthFilter = filterBulan.value;
+                    populateMonthFilter(allTransactions);
+                    if(allTransactions.some(tx => tx.tanggal.startsWith(currentMonthFilter))){
+                         filterBulan.value = currentMonthFilter;
+                    }
+                    applyFilters();
+                }
+            }
+
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
